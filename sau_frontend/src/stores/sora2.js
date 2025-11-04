@@ -128,18 +128,27 @@ export const useSora2Store = defineStore('sora2', () => {
   const startTaskPolling = (taskId, interval = 5000) => {
     // 停止之前的轮询
     stopTaskPolling(taskId)
-    
+
     const poll = async () => {
       try {
-        await fetchTaskStatus(taskId)
+        const taskData = await fetchTaskStatus(taskId)
+
+        // 检查任务是否已到达终态
+        const finalStatuses = ['completed', 'failed', 'cancelled']
+        if (finalStatuses.includes(taskData.status)) {
+          // 任务已完成，停止轮询
+          stopTaskPolling(taskId)
+          console.log(`任务 ${taskId} 已完成，状态: ${taskData.status}，停止轮询`)
+        }
       } catch (error) {
         console.error(`轮询任务 ${taskId} 状态失败:`, error)
+        // 如果连续失败，可以考虑停止轮询（可选）
       }
     }
-    
+
     // 立即执行一次
     poll()
-    
+
     // 设置定时器
     const timerId = setInterval(poll, interval)
     pollingTasks.value.set(taskId, timerId)

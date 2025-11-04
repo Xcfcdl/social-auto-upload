@@ -59,15 +59,15 @@
           
           <el-form-item label="视频时长">
             <el-radio-group v-model="formData.duration" size="large">
-              <el-radio-button label="10">10秒</el-radio-button>
-              <el-radio-button label="15">15秒</el-radio-button>
+              <el-radio-button value="10">10秒</el-radio-button>
+              <el-radio-button value="15">15秒</el-radio-button>
             </el-radio-group>
           </el-form-item>
-          
+
           <el-form-item label="视频比例">
             <el-radio-group v-model="formData.aspectRatio" size="large">
-              <el-radio-button label="16:9">横版 16:9</el-radio-button>
-              <el-radio-button label="9:16">竖版 9:16</el-radio-button>
+              <el-radio-button value="16:9">横版 16:9</el-radio-button>
+              <el-radio-button value="9:16">竖版 9:16</el-radio-button>
             </el-radio-group>
           </el-form-item>
           

@@ -5,8 +5,10 @@ import threading
 import queue
 import json
 import requests
+import sqlite3
 from datetime import datetime
 from pathlib import Path
+from conf import BASE_DIR
 
 # 配置信息（实际使用时应该从配置文件读取）
 API_BASE_URL = "https://api.apimart.ai"
@@ -20,6 +22,61 @@ TASK_STATUS = {
     'FAILED': 'failed',
     'CANCELLED': 'cancelled'
 }
+
+# 自动保存视频到素材库
+def save_video_to_material(video_url, title, description):
+    """
+    下载Sora2生成的视频并保存到素材库
+    :param video_url: 视频URL（可能是字符串或列表）
+    :param title: 视频标题
+    :param description: 视频描述
+    :return: 保存的文件路径或None
+    """
+    try:
+        # 处理URL（可能是列表格式）
+        if isinstance(video_url, list):
+            if len(video_url) == 0:
+                print("❌ 视频URL列表为空")
+                return None
+            video_url = video_url[0]  # 取第一个URL
+
+        # 下载视频
+        print(f"📥 开始下载视频: {video_url}")
+        response = requests.get(video_url, timeout=60, stream=True)
+        response.raise_for_status()
+
+        # 生成文件名
+        uuid_v1 = uuid.uuid1()
+        filename = f"{title}.mp4"
+        final_filename = f"{uuid_v1}_{filename}"
+        filepath = Path(BASE_DIR / "videoFile" / final_filename)
+
+        # 确保目录存在
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+
+        # 保存视频文件
+        with open(filepath, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+
+        # 获取文件大小（MB）
+        filesize = round(float(os.path.getsize(filepath)) / (1024 * 1024), 2)
+
+        # 记录到数据库
+        with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO file_records (filename, filesize, file_path)
+                VALUES (?, ?, ?)
+            ''', (filename, filesize, final_filename))
+            conn.commit()
+
+        print(f"✅ 视频已保存到素材库: {filename} ({filesize}MB)")
+        return final_filename
+
+    except Exception as e:
+        print(f"❌ 保存视频到素材库失败: {e}")
+        return None
 
 # 任务管理
 class TaskManager:
@@ -123,10 +180,15 @@ class Sora2APIClient:
         # 构建系统提示词
         system_prompt = f"""
         你是一个专业的视频内容策划师。请根据用户提供的主题，生成{count}个完整的视频生产方案，每个方案包含：
-        1. 详细的视频提示词（必须非常具体，包含场景、动作、风格等元素，适合Sora2模型理解）
+        1. 详细的视频提示词（必须非常具体，包含以下元素）：
+           - 视觉元素：场景、角色外观、动作、表情、镜头运动
+           - 风格：画风、色调、光影效果
+           - 音频元素：背景音乐风格、音效描述
+           - 节奏：视频的整体节奏和氛围
+           注意：如果是讲解类内容，请描述角色的讲解动作和表情，营造知识分享的氛围
         2. 吸引人的视频标题（简洁有力，10-20字）
         3. 专业的视频简介（50-100字，概括视频内容和亮点）
-        
+
         请确保每个方案都是独特的，避免重复。返回格式必须是JSON数组，每个元素包含prompt、title和description字段。
         """
         
@@ -283,11 +345,26 @@ class VideoGenerationWorker:
                                 videos = status_info.get('result', {}).get('videos', [])
                                 if videos:
                                     video_url = videos[0].get('url', '')
+
+                                    # 自动保存到素材库
+                                    task_manager.add_log(task_id, 'INFO', f'正在将第{i+1}个视频保存到素材库...')
+                                    material_path = save_video_to_material(
+                                        video_url=video_url,
+                                        title=script.get('title', f'视频{i+1}'),
+                                        description=script.get('description', '')
+                                    )
+
+                                    if material_path:
+                                        task_manager.add_log(task_id, 'INFO', f'第{i+1}个视频已保存到素材库: {material_path}')
+                                    else:
+                                        task_manager.add_log(task_id, 'WARNING', f'第{i+1}个视频保存到素材库失败，但视频URL仍可用')
+
                                     generated_videos.append({
                                         'title': script.get('title', f'视频{i+1}'),
                                         'description': script.get('description', ''),
                                         'url': video_url,
-                                        'thumbnail': videos[0].get('thumbnail', '')
+                                        'thumbnail': videos[0].get('thumbnail', ''),
+                                        'material_path': material_path  # 添加素材库路径
                                     })
                                 break
                             elif status_info.get('status') == 'failed':
