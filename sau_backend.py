@@ -8,10 +8,14 @@ from pathlib import Path
 from queue import Queue
 from flask_cors import CORS
 from myUtils.auth import check_cookie
-from flask import Flask, request, jsonify, Response, render_template, send_from_directory
+from flask import Flask, request, jsonify, Response, render_template, send_from_directory, stream_with_context
 from conf import BASE_DIR
 from myUtils.login import get_tencent_cookie, douyin_cookie_gen, get_ks_cookie, xiaohongshu_cookie_gen
 from myUtils.postVideo import post_video_tencent, post_video_DouYin, post_video_ks, post_video_xhs
+from myUtils.sora2_generator import (
+    generate_video_scripts, create_video_task, get_task_info,
+    get_all_tasks, cancel_task, get_task_logs, task_manager
+)
 
 active_queues = {}
 app = Flask(__name__)
@@ -483,6 +487,262 @@ def sse_stream(status_queue):
         else:
             # 避免 CPU 占满
             time.sleep(0.1)
+
+# Sora2 视频生成相关接口
+
+@app.route('/sora2/generate-script', methods=['POST'])
+def generate_script():
+    try:
+        data = request.get_json()
+        theme = data.get('theme', '')
+        count = data.get('count', 1)
+        
+        if not theme:
+            return jsonify({
+                'code': 400,
+                'msg': '主题不能为空',
+                'data': None
+            })
+        
+        if count < 1 or count > 20:
+            return jsonify({
+                'code': 400,
+                'msg': '生成数量必须在1-20之间',
+                'data': None
+            })
+        
+        # 生成视频脚本
+        scripts = generate_video_scripts(theme, count)
+        
+        return jsonify({
+            'code': 200,
+            'msg': '脚本生成成功',
+            'data': {
+                'scripts': scripts,
+                'count': len(scripts)
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            'code': 500,
+            'msg': f'生成脚本失败: {str(e)}',
+            'data': None
+        })
+
+@app.route('/sora2/create-task', methods=['POST'])
+def create_sora2_task():
+    try:
+        data = request.get_json()
+        
+        # 验证必要参数
+        if not data.get('theme'):
+            return jsonify({
+                'code': 400,
+                'msg': '主题不能为空',
+                'data': None
+            })
+        
+        if not data.get('scripts'):
+            return jsonify({
+                'code': 400,
+                'msg': '脚本数据不能为空',
+                'data': None
+            })
+        
+        # 创建视频任务
+        task = create_video_task(data)
+        
+        return jsonify({
+            'code': 200,
+            'msg': '任务创建成功',
+            'data': task
+        })
+    except Exception as e:
+        return jsonify({
+            'code': 500,
+            'msg': f'创建任务失败: {str(e)}',
+            'data': None
+        })
+
+@app.route('/sora2/task-status/<task_id>', methods=['GET'])
+def get_sora2_task_status(task_id):
+    try:
+        task = get_task_info(task_id)
+        
+        if not task:
+            return jsonify({
+                'code': 404,
+                'msg': '任务不存在',
+                'data': None
+            })
+        
+        # 构造符合API规范的响应格式
+        api_response = {
+            'id': task.get('taskId', task_id),
+            'status': task.get('status'),
+            'progress': task.get('progress', 0),
+            'actual_time': task.get('actual_time', 0),
+            'completed': task.get('completed', 0),
+            'created': task.get('created', 0),
+            'estimated_time': task.get('estimated_time', 0)
+        }
+        
+        # 仅当状态为completed时返回result
+        if task.get('status') == 'completed':
+            api_response['result'] = {
+                'videos': task.get('videos', [])
+            }
+        
+        return jsonify({
+            'code': 200,
+            'msg': '获取任务状态成功',
+            'data': api_response
+        })
+    except Exception as e:
+        return jsonify({
+            'code': 500,
+            'msg': f'获取任务状态失败: {str(e)}',
+            'data': None
+        })
+
+@app.route('/sora2/task-list', methods=['GET'])
+def get_sora2_task_list():
+    try:
+        tasks = get_all_tasks()
+        
+        # 按创建时间倒序排序
+        tasks.sort(key=lambda x: x['createdAt'], reverse=True)
+        
+        return jsonify({
+            'code': 200,
+            'msg': '获取任务列表成功',
+            'data': tasks
+        })
+    except Exception as e:
+        return jsonify({
+            'code': 500,
+            'msg': f'获取任务列表失败: {str(e)}',
+            'data': None
+        })
+
+@app.route('/sora2/cancel-task/<task_id>', methods=['POST'])
+def cancel_sora2_task(task_id):
+    try:
+        success = cancel_task(task_id)
+        
+        if success:
+            return jsonify({
+                'code': 200,
+                'msg': '任务取消成功',
+                'data': None
+            })
+        else:
+            task = get_task_info(task_id)
+            if not task:
+                return jsonify({
+                    'code': 404,
+                    'msg': '任务不存在',
+                    'data': None
+                })
+            else:
+                return jsonify({
+                    'code': 400,
+                    'msg': '任务已完成或已取消，无法取消',
+                    'data': None
+                })
+    except Exception as e:
+        return jsonify({
+            'code': 500,
+            'msg': f'取消任务失败: {str(e)}',
+            'data': None
+        })
+
+@app.route('/sora2/task-logs/<task_id>', methods=['GET'])
+def get_sora2_task_logs(task_id):
+    try:
+        logs = get_task_logs(task_id)
+        
+        return jsonify({
+            'code': 200,
+            'msg': '获取任务日志成功',
+            'data': logs
+        })
+    except Exception as e:
+        return jsonify({
+            'code': 500,
+            'msg': f'获取任务日志失败: {str(e)}',
+            'data': None
+        })
+
+@app.route('/sora2/download/<task_id>', methods=['GET'])
+def download_sora2_video(task_id):
+    try:
+        task = get_task_info(task_id)
+        
+        if not task:
+            return jsonify({
+                'code': 404,
+                'msg': '任务不存在',
+                'data': None
+            })
+        
+        if task['status'] != 'completed':
+            return jsonify({
+                'code': 400,
+                'msg': '任务未完成，无法下载',
+                'data': None
+            })
+        
+        # 这里应该实现视频文件的下载逻辑
+        # 由于实际的视频文件可能存储在外部服务，这里返回第一个视频的URL
+        if task['videos']:
+            first_video_url = task['videos'][0]['url']
+            # 如果是生产环境，可能需要实现文件代理下载
+            return jsonify({
+                'code': 200,
+                'msg': '获取下载链接成功',
+                'data': {
+                    'downloadUrl': first_video_url,
+                    'videoCount': len(task['videos'])
+                }
+            })
+        else:
+            return jsonify({
+                'code': 400,
+                'msg': '没有可下载的视频',
+                'data': None
+            })
+    except Exception as e:
+        return jsonify({
+            'code': 500,
+            'msg': f'下载视频失败: {str(e)}',
+            'data': None
+        })
+
+@app.route('/sora2/task-stream/<task_id>', methods=['GET'])
+def stream_task_status(task_id):
+    """流式返回任务状态更新"""
+    def generate():
+        while True:
+            task = get_task_info(task_id)
+            if not task:
+                yield f'data: {json.dumps({"error": "任务不存在"})}\n\n'
+                break
+            
+            # 发送任务状态
+            yield f'data: {json.dumps(task)}\n\n'
+            
+            # 如果任务已完成或失败，停止流
+            if task['status'] in ['completed', 'failed', 'cancelled']:
+                break
+            
+            # 等待任务更新
+            updated = task_manager.wait_for_update(task_id, timeout=10)
+            if not updated:
+                # 定期发送保持连接
+                pass
+    
+    return Response(stream_with_context(generate()), mimetype='text/event-stream')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0' ,port=5409)

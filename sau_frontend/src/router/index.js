@@ -4,6 +4,7 @@ import AccountManagement from '../views/AccountManagement.vue'
 import MaterialManagement from '../views/MaterialManagement.vue'
 import PublishCenter from '../views/PublishCenter.vue'
 import About from '../views/About.vue'
+import Sora2VideoGenerator from '../views/Sora2VideoGenerator.vue'
 
 const routes = [
   {
@@ -25,6 +26,11 @@ const routes = [
     path: '/publish-center',
     name: 'PublishCenter',
     component: PublishCenter
+  },
+  {
+    path: '/sora2-video-generator',
+    name: 'Sora2VideoGenerator',
+    component: Sora2VideoGenerator
   },
   {
     path: '/about',

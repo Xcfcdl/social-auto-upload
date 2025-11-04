@@ -32,6 +32,10 @@
               <el-icon><Upload /></el-icon>
               <span>发布中心</span>
             </el-menu-item>
+            <el-menu-item index="/sora2-video-generator">
+              <el-icon><VideoPlay /></el-icon>
+              <span>Sora2视频生产</span>
+            </el-menu-item>
             <el-menu-item index="/website">
               <el-icon><Monitor /></el-icon>
               <span>网站</span>
@@ -67,7 +71,7 @@ import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { 
   HomeFilled, User, Monitor, DataAnalysis, 
-  Fold, Picture, Upload
+  Fold, Picture, Upload, VideoPlay
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
