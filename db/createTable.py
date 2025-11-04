@@ -34,9 +34,25 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS file_records (
 )
 ''')
 
+# 创建任务记录表
+cursor.execute('''CREATE TABLE IF NOT EXISTS task_records (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, -- 唯一标识每条记录
+    title TEXT NOT NULL,                  -- 任务标题
+    platform INTEGER NOT NULL,            -- 平台类型 (1=小红书, 2=视频号, 3=抖音, 4=快手)
+    account_id INTEGER,                   -- 关联的账号ID
+    account_name TEXT,                    -- 账号名称
+    status TEXT DEFAULT '待执行',          -- 任务状态 (待执行, 进行中, 已完成, 已失败, 已取消)
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP, -- 创建时间
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP, -- 更新时间
+    file_list TEXT,                       -- 文件列表（JSON格式）
+    tags TEXT,                            -- 标签
+    category INTEGER,                     -- 分类
+    error_msg TEXT                        -- 错误信息（如果失败）
+)
+''')
 
 # 提交更改
 conn.commit()
-print("✅ 表创建成功")
+print("Table created successfully")
 # 关闭连接
 conn.close()

@@ -371,6 +371,133 @@ def postVideo():
         }), 200
 
 
+@app.route('/dashboard/stats', methods=['GET'])
+def get_dashboard_stats():
+    """获取Dashboard统计数据"""
+    try:
+        with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            # 账号统计
+            cursor.execute('SELECT COUNT(*) as total FROM user_info')
+            account_total = cursor.fetchone()['total']
+
+            cursor.execute('SELECT COUNT(*) as normal FROM user_info WHERE status = 1')
+            account_normal = cursor.fetchone()['normal']
+
+            account_abnormal = account_total - account_normal
+
+            # 平台统计
+            cursor.execute('SELECT type, COUNT(*) as count FROM user_info GROUP BY type')
+            platform_rows = cursor.fetchall()
+            platform_stats = {
+                'kuaishou': 0,
+                'douyin': 0,
+                'channels': 0,
+                'xiaohongshu': 0
+            }
+
+            for row in platform_rows:
+                type_val = row['type']
+                count = row['count']
+                if type_val == 1:
+                    platform_stats['xiaohongshu'] = count
+                elif type_val == 2:
+                    platform_stats['channels'] = count
+                elif type_val == 3:
+                    platform_stats['douyin'] = count
+                elif type_val == 4:
+                    platform_stats['kuaishou'] = count
+
+            platform_total = sum(platform_stats.values())
+
+            # 任务统计
+            cursor.execute('SELECT COUNT(*) as total FROM task_records')
+            task_total = cursor.fetchone()['total']
+
+            cursor.execute('SELECT COUNT(*) as completed FROM task_records WHERE status = "已完成"')
+            task_completed = cursor.fetchone()['completed']
+
+            cursor.execute('SELECT COUNT(*) as in_progress FROM task_records WHERE status = "进行中"')
+            task_in_progress = cursor.fetchone()['in_progress']
+
+            cursor.execute('SELECT COUNT(*) as failed FROM task_records WHERE status = "已失败"')
+            task_failed = cursor.fetchone()['failed']
+
+            # 内容统计（假设所有上传的文件都是已发布的内容，暂时没有草稿状态）
+            cursor.execute('SELECT COUNT(*) as total FROM file_records')
+            content_total = cursor.fetchone()['total']
+
+            # 最近任务列表（最近5条）
+            cursor.execute('''
+                SELECT
+                    id,
+                    title,
+                    platform,
+                    account_name,
+                    status,
+                    create_time
+                FROM task_records
+                ORDER BY create_time DESC
+                LIMIT 5
+            ''')
+            recent_tasks_rows = cursor.fetchall()
+
+            platform_map = {
+                1: '小红书',
+                2: '视频号',
+                3: '抖音',
+                4: '快手'
+            }
+
+            recent_tasks = []
+            for row in recent_tasks_rows:
+                recent_tasks.append({
+                    'id': row['id'],
+                    'title': row['title'],
+                    'platform': platform_map.get(row['platform'], '未知'),
+                    'account': row['account_name'] or '未指定',
+                    'createTime': row['create_time'],
+                    'status': row['status']
+                })
+
+            return jsonify({
+                'code': 200,
+                'msg': 'success',
+                'data': {
+                    'accountStats': {
+                        'total': account_total,
+                        'normal': account_normal,
+                        'abnormal': account_abnormal
+                    },
+                    'platformStats': {
+                        'total': platform_total,
+                        **platform_stats
+                    },
+                    'taskStats': {
+                        'total': task_total,
+                        'completed': task_completed,
+                        'inProgress': task_in_progress,
+                        'failed': task_failed
+                    },
+                    'contentStats': {
+                        'total': content_total,
+                        'published': content_total,  # 暂时假设所有都是已发布
+                        'draft': 0  # 暂时没有草稿功能
+                    },
+                    'recentTasks': recent_tasks
+                }
+            }), 200
+
+    except Exception as e:
+        return jsonify({
+            'code': 500,
+            'msg': f'获取统计数据失败: {str(e)}',
+            'data': None
+        }), 500
+
+
 @app.route('/updateUserinfo', methods=['POST'])
 def updateUserinfo():
     # 获取JSON数据
