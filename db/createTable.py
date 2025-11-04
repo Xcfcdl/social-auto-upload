@@ -30,7 +30,10 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS file_records (
     filename TEXT NOT NULL,               -- 文件名
     filesize REAL,                     -- 文件大小（单位：MB）
     upload_time DATETIME DEFAULT CURRENT_TIMESTAMP, -- 上传时间，默认当前时间
-    file_path TEXT                        -- 文件路径
+    file_path TEXT,                       -- 文件路径
+    title TEXT,                           -- 视频标题（用于AI生成视频）
+    description TEXT,                     -- 视频描述/简介
+    tags TEXT                             -- 标签（逗号分隔）
 )
 ''')
 

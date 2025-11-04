@@ -112,6 +112,11 @@ def upload_save():
     else:
         filename = file.filename
 
+    # 获取元数据（可选）
+    title = request.form.get('title', '')
+    description = request.form.get('description', '')
+    tags = request.form.get('tags', '')
+
     try:
         # 生成 UUID v1
         uuid_v1 = uuid.uuid1()
@@ -127,11 +132,18 @@ def upload_save():
         with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                                INSERT INTO file_records (filename, filesize, file_path)
-            VALUES (?, ?, ?)
-                                ''', (filename, round(float(os.path.getsize(filepath)) / (1024 * 1024),2), final_filename))
+                INSERT INTO file_records (filename, filesize, file_path, title, description, tags)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (
+                filename,
+                round(float(os.path.getsize(filepath)) / (1024 * 1024), 2),
+                final_filename,
+                title,
+                description,
+                tags
+            ))
             conn.commit()
-            print("✅ 上传文件已记录")
+            print("Upload file recorded")
 
         return jsonify({
             "code": 200,

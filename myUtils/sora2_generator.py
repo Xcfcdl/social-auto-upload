@@ -6,6 +6,7 @@ import queue
 import json
 import requests
 import sqlite3
+import re
 from datetime import datetime
 from pathlib import Path
 from conf import BASE_DIR
@@ -23,6 +24,47 @@ TASK_STATUS = {
     'CANCELLED': 'cancelled'
 }
 
+# 从文本中提取标签（通过AI或关键词提取）
+def extract_tags_from_description(description, max_tags=5):
+    """
+    从描述中提取标签
+    :param description: 视频描述文本
+    :param max_tags: 最大标签数量
+    :return: 标签列表
+    """
+    if not description:
+        return []
+
+    # 简单的关键词提取策略
+    # 可以根据需要使用更复杂的NLP方法
+    tags = []
+
+    # 常见的标签关键词模式
+    common_keywords = [
+        '教程', '技巧', '分享', '日常', '生活', '美食', '旅行', '科技',
+        '娱乐', '音乐', '舞蹈', '游戏', '运动', '健身', '时尚', '美妆',
+        '搞笑', '剧情', '知识', '学习', '工作', '创业', '投资', '理财'
+    ]
+
+    # 从描述中查找关键词
+    for keyword in common_keywords:
+        if keyword in description and keyword not in tags:
+            tags.append(keyword)
+            if len(tags) >= max_tags:
+                break
+
+    # 如果没有找到足够的标签，尝试提取名词性短语
+    if len(tags) < max_tags:
+        # 提取2-4字的词组
+        words = re.findall(r'[\u4e00-\u9fff]{2,4}', description)
+        for word in words:
+            if word not in tags and word not in common_keywords:
+                tags.append(word)
+                if len(tags) >= max_tags:
+                    break
+
+    return tags[:max_tags]
+
 # 自动保存视频到素材库
 def save_video_to_material(video_url, title, description):
     """
@@ -36,12 +78,12 @@ def save_video_to_material(video_url, title, description):
         # 处理URL（可能是列表格式）
         if isinstance(video_url, list):
             if len(video_url) == 0:
-                print("❌ 视频URL列表为空")
+                print("Video URL list is empty")
                 return None
             video_url = video_url[0]  # 取第一个URL
 
         # 下载视频
-        print(f"📥 开始下载视频: {video_url}")
+        print(f"Downloading video: {video_url}")
         response = requests.get(video_url, timeout=60, stream=True)
         response.raise_for_status()
 
@@ -62,20 +104,26 @@ def save_video_to_material(video_url, title, description):
         # 获取文件大小（MB）
         filesize = round(float(os.path.getsize(filepath)) / (1024 * 1024), 2)
 
-        # 记录到数据库
+        # 从描述中提取标签
+        tags = extract_tags_from_description(description)
+        tags_str = ','.join(tags) if tags else ''
+
+        # 记录到数据库（包含元数据）
         with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                INSERT INTO file_records (filename, filesize, file_path)
-                VALUES (?, ?, ?)
-            ''', (filename, filesize, final_filename))
+                INSERT INTO file_records (filename, filesize, file_path, title, description, tags)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (filename, filesize, final_filename, title, description, tags_str))
             conn.commit()
 
-        print(f"✅ 视频已保存到素材库: {filename} ({filesize}MB)")
+        print(f"Video saved to material library: {filename} ({filesize}MB)")
+        if tags_str:
+            print(f"Extracted tags: {tags_str}")
         return final_filename
 
     except Exception as e:
-        print(f"❌ 保存视频到素材库失败: {e}")
+        print(f"Failed to save video to material library: {e}")
         return None
 
 # 任务管理

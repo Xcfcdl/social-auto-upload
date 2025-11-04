@@ -861,8 +861,12 @@ const confirmMaterialSelection = () => {
     ElMessage.warning('请选择至少一个素材')
     return
   }
-  
+
   if (currentUploadTab.value) {
+    // 是否是第一次选择素材（用于自动填充标题和标签）
+    const isFirstSelection = currentUploadTab.value.fileList.length === 0
+    let firstMaterialWithMetadata = null
+
     // 将选中的素材添加到当前tab的文件列表
     selectedMaterials.value.forEach(materialId => {
       const material = materials.value.find(m => m.id === materialId)
@@ -874,27 +878,55 @@ const confirmMaterialSelection = () => {
           size: material.filesize * 1024 * 1024, // 转换为字节
           type: 'video/mp4'
         }
-        
+
         // 检查是否已存在相同文件
         const exists = currentUploadTab.value.fileList.some(file => file.path === fileInfo.path)
         if (!exists) {
           currentUploadTab.value.fileList.push(fileInfo)
         }
+
+        // 记录第一个带有元数据的素材
+        if (!firstMaterialWithMetadata && (material.title || material.tags)) {
+          firstMaterialWithMetadata = material
+        }
       }
     })
-    
+
+    // 如果是第一次选择素材且找到了带有元数据的素材，自动填充标题和标签
+    if (isFirstSelection && firstMaterialWithMetadata) {
+      // 自动填充标题
+      if (firstMaterialWithMetadata.title && !currentUploadTab.value.title) {
+        currentUploadTab.value.title = firstMaterialWithMetadata.title
+        console.log('Auto-filled title:', firstMaterialWithMetadata.title)
+      }
+
+      // 自动填充标签（从tags字段解析）
+      if (firstMaterialWithMetadata.tags && currentUploadTab.value.selectedTopics.length === 0) {
+        const tags = firstMaterialWithMetadata.tags.split(',').filter(tag => tag.trim())
+        tags.forEach(tag => {
+          const trimmedTag = tag.trim()
+          if (trimmedTag && !currentUploadTab.value.selectedTopics.includes(trimmedTag)) {
+            currentUploadTab.value.selectedTopics.push(trimmedTag)
+          }
+        })
+        console.log('Auto-filled tags:', tags)
+      }
+
+      ElMessage.success(`已添加素材并自动填充了标题和标签`)
+    } else {
+      ElMessage.success(`已添加 ${selectedMaterials.value.length} 个素材`)
+    }
+
     // 更新显示列表
     currentUploadTab.value.displayFileList = [...currentUploadTab.value.fileList.map(item => ({
       name: item.name,
       url: item.url
     }))]
   }
-  
-  const addedCount = selectedMaterials.value.length
+
   materialLibraryVisible.value = false
   selectedMaterials.value = []
   currentUploadTab.value = null
-  ElMessage.success(`已添加 ${addedCount} 个素材`)
 }
 
 // 批量发布对话框状态

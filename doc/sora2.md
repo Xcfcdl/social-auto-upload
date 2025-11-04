@@ -4,6 +4,7 @@
 - Supports multiple generation modes including text-to-video and image-to-video
 - Generated video links are valid for 24 hours, please save them promptly 
 
+
 <RequestExample>
   ```bash cURL theme={null}
   curl --request POST \
