@@ -118,7 +118,7 @@ class Sora2APIClient:
     
     def generate_script(self, theme, count):
         """调用Chat API生成视频脚本"""
-        endpoint = f"{self.base_url}/texts/general/chat-completions"
+        endpoint = f"{self.base_url}/v1/chat/completions"
         
         # 构建系统提示词
         system_prompt = f"""
@@ -189,7 +189,7 @@ class Sora2APIClient:
     
     def create_video_task(self, prompt, duration=10, aspect_ratio="16:9", watermark=False):
         """创建视频生成任务"""
-        endpoint = f"{self.base_url}/videos/sora-2/generation"
+        endpoint = f"{self.base_url}/v1/videos/generations"
         
         payload = {
             "model": "sora-2",
@@ -210,10 +210,10 @@ class Sora2APIClient:
     
     def get_task_status(self, task_id):
         """获取任务状态"""
-        endpoint = f"{self.base_url}/tasks/status"
-        
+        endpoint = f"{self.base_url}/v1/tasks/{task_id}"
+
         try:
-            response = requests.get(endpoint, headers=self.headers, params={'task_id': task_id})
+            response = requests.get(endpoint, headers=self.headers)
             response.raise_for_status()
             return response.json()
         except Exception as e:
@@ -273,9 +273,11 @@ class VideoGenerationWorker:
                                 task_manager.update_task(task_id, {'status': TASK_STATUS['CANCELLED']})
                                 task_manager.add_log(task_id, 'INFO', '任务已取消')
                                 return
-                            
-                            status_info = self.client.get_task_status(video_task['task_id'])
-                            
+
+                            status_response = self.client.get_task_status(video_task['task_id'])
+                            # 从响应中提取data字段
+                            status_info = status_response.get('data', {})
+
                             if status_info.get('status') == 'completed':
                                 # 获取生成的视频
                                 videos = status_info.get('result', {}).get('videos', [])
