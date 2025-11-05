@@ -376,11 +376,22 @@
       </el-form>
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button 
-            type="primary" 
-            @click="submitAccountForm" 
-            :loading="sseConnecting" 
+          <!-- 编辑模式下显示更新Cookies按钮 -->
+          <el-button
+            v-if="dialogType === 'edit' && !sseConnecting"
+            type="warning"
+            @click="handleUpdateCookies"
+          >
+            <el-icon><RefreshRight /></el-icon>
+            更新Cookies
+          </el-button>
+          <div style="flex: 1"></div>
+          <el-button @click="handleDialogClose" :disabled="sseConnecting">取消</el-button>
+          <el-button
+            v-if="!isUpdatingCookies"
+            type="primary"
+            @click="submitAccountForm"
+            :loading="sseConnecting"
             :disabled="sseConnecting"
           >
             {{ sseConnecting ? '请求中' : '确认' }}
@@ -393,7 +404,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
-import { Refresh, CircleCheckFilled, CircleCloseFilled } from '@element-plus/icons-vue'
+import { Refresh, CircleCheckFilled, CircleCloseFilled, RefreshRight } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { accountApi } from '@/api/account'
 import { useAccountStore } from '@/stores/account'
@@ -508,6 +519,7 @@ const rules = {
 const sseConnecting = ref(false)
 const qrCodeData = ref('')
 const loginStatus = ref('')
+const isUpdatingCookies = ref(false) // 标识是否正在更新cookies
 
 // 添加账号
 const handleAddAccount = () => {
@@ -529,7 +541,45 @@ const handleAddAccount = () => {
 const handleEdit = (row) => {
   dialogType.value = 'edit'
   Object.assign(accountForm, { ...row })
+  // 重置SSE状态
+  sseConnecting.value = false
+  qrCodeData.value = ''
+  loginStatus.value = ''
+  isUpdatingCookies.value = false
   dialogVisible.value = true
+}
+
+// 更新Cookies
+const handleUpdateCookies = () => {
+  ElMessageBox.confirm(
+    '更新Cookies将重新登录此账号，是否继续？',
+    '确认更新',
+    {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    }
+  )
+    .then(() => {
+      // 标记为更新cookies模式
+      isUpdatingCookies.value = true
+      // 建立SSE连接进行重新登录
+      connectSSE(accountForm.platform, accountForm.name)
+    })
+    .catch(() => {
+      // 取消操作
+    })
+}
+
+// 关闭对话框
+const handleDialogClose = () => {
+  if (sseConnecting.value) {
+    ElMessage.warning('正在登录中，请稍候...')
+    return
+  }
+  closeSSEConnection()
+  dialogVisible.value = false
+  isUpdatingCookies.value = false
 }
 
 // 删除账号
@@ -635,25 +685,30 @@ const connectSSE = (platform, name) => {
         setTimeout(() => {
           // 关闭连接
           closeSSEConnection()
-          
+
           // 1秒后关闭对话框并开始刷新
           setTimeout(() => {
             dialogVisible.value = false
             sseConnecting.value = false
-            ElMessage.success('账号添加成功')
-            
+
+            // 根据模式显示不同的成功消息
+            const successMsg = isUpdatingCookies.value ? 'Cookies更新成功' : '账号添加成功'
+            ElMessage.success(successMsg)
+
             // 显示更新账号信息提示
             ElMessage({
               type: 'info',
               message: '正在同步账号信息...',
               duration: 0
             })
-            
+
             // 触发刷新操作
             fetchAccounts().then(() => {
               // 刷新完成后关闭提示
               ElMessage.closeAll()
               ElMessage.success('账号信息已更新')
+              // 重置更新cookies标志
+              isUpdatingCookies.value = false
             })
           }, 1000)
         }, 1000)
