@@ -11,9 +11,16 @@ from datetime import datetime
 from pathlib import Path
 from conf import BASE_DIR
 
-# 配置信息（实际使用时应该从配置文件读取）
-API_BASE_URL = "https://api.apimart.ai"
-API_KEY = "sk-5vdtIM5RNun4CT9LDmBHkXvjowmpYKslhPqfURRbn7RL62fy"  # 需要替换为实际的API密钥
+import os
+
+# 配置信息（从环境变量获取，增强安全性）
+API_BASE_URL = os.environ.get('SORA2_API_BASE_URL', 'https://api.apimart.ai')
+API_KEY = os.environ.get('SORA2_API_KEY')
+
+# 验证API密钥是否已设置
+if not API_KEY:
+    print("警告: SORA2_API_KEY 环境变量未设置! 请在使用前设置此环境变量。")
+    # 这里不抛出异常，允许程序继续运行，但在实际调用API时会失败
 
 # 任务状态常量
 TASK_STATUS = {
