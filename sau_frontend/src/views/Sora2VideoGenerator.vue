@@ -207,73 +207,106 @@
     </el-card>
     
     <!-- 任务详情对话框 -->
-    <el-dialog 
+    <el-dialog
       v-model="showTaskDetail"
       title="任务详情"
-      width="70%"
+      width="90%"
       @close="closeTaskDetail"
     >
-      <div v-if="selectedTask" class="task-detail">
-        <el-descriptions :column="1" border>
-          <el-descriptions-item label="任务ID">{{ selectedTask.taskId }}</el-descriptions-item>
-          <el-descriptions-item label="视频主题">{{ selectedTask.theme }}</el-descriptions-item>
-          <el-descriptions-item label="生成数量">{{ selectedTask.count }}</el-descriptions-item>
-          <el-descriptions-item label="视频时长">{{ selectedTask.duration || '10' }}秒</el-descriptions-item>
-          <el-descriptions-item label="视频比例">{{ selectedTask.aspectRatio || '16:9' }}</el-descriptions-item>
-          <el-descriptions-item label="当前状态">
-            <el-tag :type="getStatusType(selectedTask.status)" effect="light">
-              {{ getStatusText(selectedTask.status) }}
-            </el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="进度">
-            <el-progress 
-              v-if="selectedTask.progress !== undefined"
-              :percentage="selectedTask.progress" 
-              :status="getProgressStatus(selectedTask.status)"
-              type="line" 
-              :stroke-width="10"
-              :show-text="true"
-            />
-            <span v-else>-</span>
-          </el-descriptions-item>
-          <el-descriptions-item label="创建时间">{{ formatDate(selectedTask.createdAt) }}</el-descriptions-item>
-          <el-descriptions-item label="完成时间">{{ selectedTask.completedAt ? formatDate(selectedTask.completedAt) : '-' }}</el-descriptions-item>
-          <el-descriptions-item v-if="selectedTask.error" label="错误信息" class="error-message">
-            {{ selectedTask.error }}
-          </el-descriptions-item>
-        </el-descriptions>
-        
-        <!-- 任务日志 -->
-        <div class="task-logs">
-          <h3>执行日志</h3>
-          <div class="logs-container">
-            <el-scrollbar height="300px">
-              <div v-if="taskLogs.length > 0" class="log-item" v-for="(log, index) in taskLogs" :key="index">
-                <span class="log-time">{{ log.time }}</span>
-                <span class="log-content" :class="log.level">[{{ log.level }}] {{ log.message }}</span>
-              </div>
-              <div v-else class="empty-logs">暂无日志信息</div>
-            </el-scrollbar>
+      <div v-if="selectedTask" class="task-detail-container">
+        <!-- 左栏：任务信息和日志 -->
+        <div class="left-panel">
+          <!-- 任务详情 -->
+          <div class="detail-section">
+            <h3>任务信息</h3>
+            <el-descriptions :column="1" border size="small">
+              <el-descriptions-item label="任务ID">{{ selectedTask.taskId }}</el-descriptions-item>
+              <el-descriptions-item label="视频主题">{{ selectedTask.theme }}</el-descriptions-item>
+              <el-descriptions-item label="生成数量">{{ selectedTask.count }}</el-descriptions-item>
+              <el-descriptions-item label="视频时长">{{ selectedTask.duration || '10' }}秒</el-descriptions-item>
+              <el-descriptions-item label="视频比例">{{ selectedTask.aspectRatio || '16:9' }}</el-descriptions-item>
+              <el-descriptions-item label="当前状态">
+                <el-tag :type="getStatusType(selectedTask.status)" effect="light">
+                  {{ getStatusText(selectedTask.status) }}
+                </el-tag>
+              </el-descriptions-item>
+              <el-descriptions-item label="进度">
+                <el-progress
+                  v-if="selectedTask.progress !== undefined"
+                  :percentage="selectedTask.progress"
+                  :status="getProgressStatus(selectedTask.status)"
+                  type="line"
+                  :stroke-width="10"
+                  :show-text="true"
+                />
+                <span v-else>-</span>
+              </el-descriptions-item>
+              <el-descriptions-item label="创建时间">{{ formatDate(selectedTask.createdAt) }}</el-descriptions-item>
+              <el-descriptions-item label="完成时间">{{ selectedTask.completedAt ? formatDate(selectedTask.completedAt) : '-' }}</el-descriptions-item>
+              <el-descriptions-item v-if="selectedTask.error" label="错误信息" class="error-message">
+                {{ selectedTask.error }}
+              </el-descriptions-item>
+            </el-descriptions>
+          </div>
+
+          <!-- 执行日志 -->
+          <div class="logs-section">
+            <h3>执行日志</h3>
+            <div class="logs-container">
+              <el-scrollbar height="300px">
+                <div v-if="taskLogs.length > 0" class="log-item" v-for="(log, index) in taskLogs" :key="index">
+                  <span class="log-time">{{ log.time }}</span>
+                  <span class="log-content" :class="log.level">[{{ log.level }}] {{ log.message }}</span>
+                </div>
+                <div v-else class="empty-logs">暂无日志信息</div>
+              </el-scrollbar>
+            </div>
           </div>
         </div>
-        
-        <!-- 生成的视频列表 -->
-        <div v-if="selectedTask.status === 'completed' && selectedTask.videos" class="video-list">
-          <h3>生成的视频</h3>
-          <el-carousel :interval="0" type="card" height="200px">
-            <el-carousel-item v-for="(video, index) in selectedTask.videos" :key="index">
-              <div class="video-item">
-                <video :src="video.url" controls :poster="video.thumbnail" style="max-width: 100%; max-height: 180px;"></video>
-                <div class="video-info">
-                  <p>{{ video.title }}</p>
-                  <el-button type="primary" size="small" @click="downloadSingleVideo(video)">
-                    <el-icon><Download /></el-icon>
-                    下载
-                  </el-button>
+
+        <!-- 右栏：视频预览 -->
+        <div class="right-panel">
+          <div v-if="selectedTask.status === 'completed' && selectedTask.videos && selectedTask.videos.length > 0" class="video-preview">
+            <h3>生成的视频 ({{ selectedTask.videos.length }}个)</h3>
+            <el-carousel :interval="0" type="card" height="620px" indicator-position="outside">
+              <el-carousel-item v-for="(video, index) in selectedTask.videos" :key="index">
+                <div class="video-card">
+                  <div class="video-player">
+                    <video :src="video.url" controls :poster="video.thumbnail"></video>
+                  </div>
+                  <div class="video-details">
+                    <div class="video-title">
+                      <el-icon><VideoPlay /></el-icon>
+                      <strong>{{ video.title }}</strong>
+                    </div>
+                    <div class="video-prompt" v-if="video.prompt">
+                      <div class="field-header">
+                        <el-icon><Edit /></el-icon>
+                        <span class="label">Prompt</span>
+                      </div>
+                      <el-scrollbar max-height="100px">
+                        <p class="content">{{ video.prompt }}</p>
+                      </el-scrollbar>
+                    </div>
+                    <div class="video-description" v-if="video.description">
+                      <div class="field-header">
+                        <el-icon><Document /></el-icon>
+                        <span class="label">简介</span>
+                      </div>
+                      <p class="content">{{ video.description }}</p>
+                    </div>
+                    <el-button type="primary" size="default" @click.stop="downloadSingleVideo(video)" class="download-btn">
+                      <el-icon><Download /></el-icon>
+                      下载此视频
+                    </el-button>
+                  </div>
                 </div>
-              </div>
-            </el-carousel-item>
-          </el-carousel>
+              </el-carousel-item>
+            </el-carousel>
+          </div>
+          <div v-else class="no-videos">
+            <el-empty description="暂无视频数据" />
+          </div>
         </div>
       </div>
     </el-dialog>
@@ -283,9 +316,9 @@
 <script setup>
 import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { 
-  VideoPlay, Delete, MagicStick, DataLine, Refresh, 
-  Download, CloseBold, InfoFilled
+import {
+  VideoPlay, Delete, MagicStick, DataLine, Refresh,
+  Download, CloseBold, InfoFilled, Edit, Document
 } from '@element-plus/icons-vue'
 import { useSora2Store } from '@/stores/sora2'
 import { sora2Api } from '@/api/sora2'
@@ -613,94 +646,272 @@ const formatDate = (timestamp) => {
     }
   }
   
-  .task-detail {
-    .el-descriptions__label {
-      font-weight: bold;
-    }
-    
-    .error-message {
-      color: #f56c6c;
-      background-color: #fef0f0;
-      padding: 8px;
-      border-radius: 4px;
-    }
-    
-    .task-logs {
-      margin-top: 24px;
-      
-      h3 {
-        font-size: 16px;
-        font-weight: bold;
-        margin-bottom: 12px;
-        color: #303133;
-      }
-      
-      .logs-container {
-        border: 1px solid #ebeef5;
-        border-radius: 4px;
-        padding: 12px;
-        
-        .log-item {
-          margin-bottom: 8px;
-          
-          .log-time {
-            color: #606266;
-            font-size: 12px;
-            margin-right: 8px;
-          }
-          
-          .log-content {
-            font-family: 'Courier New', monospace;
-            
-            &.INFO {
-              color: #409eff;
-            }
-            
-            &.ERROR {
-              color: #f56c6c;
-            }
-            
-            &.SUCCESS {
-              color: #67c23a;
-            }
-            
-            &.WARNING {
-              color: #e6a23c;
-            }
+  .task-detail-container {
+    display: flex;
+    gap: 24px;
+    min-height: 600px;
+
+    // 左栏：任务信息和日志
+    .left-panel {
+      flex: 0 0 400px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+
+      .detail-section {
+        h3 {
+          font-size: 16px;
+          font-weight: bold;
+          margin-bottom: 12px;
+          color: #303133;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+
+          &:before {
+            content: '';
+            width: 4px;
+            height: 16px;
+            background: #409eff;
+            border-radius: 2px;
           }
         }
-        
-        .empty-logs {
-          text-align: center;
-          color: #606266;
-          padding: 40px 0;
+
+        .el-descriptions {
+          :deep(.el-descriptions__label) {
+            font-weight: bold;
+            width: 100px;
+          }
+
+          .error-message {
+            color: #f56c6c;
+            background-color: #fef0f0;
+          }
         }
       }
-    }
-    
-    .video-list {
-      margin-top: 24px;
-      
-      h3 {
-        font-size: 16px;
-        font-weight: bold;
-        margin-bottom: 12px;
-        color: #303133;
-      }
-      
-      .video-item {
-        text-align: center;
-        
-        .video-info {
-          margin-top: 8px;
-          
-          p {
+
+      .logs-section {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+
+        h3 {
+          font-size: 16px;
+          font-weight: bold;
+          margin-bottom: 12px;
+          color: #303133;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+
+          &:before {
+            content: '';
+            width: 4px;
+            height: 16px;
+            background: #67c23a;
+            border-radius: 2px;
+          }
+        }
+
+        .logs-container {
+          flex: 1;
+          border: 1px solid #ebeef5;
+          border-radius: 4px;
+          padding: 12px;
+          background: #fafafa;
+
+          .log-item {
             margin-bottom: 8px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            font-size: 12px;
+
+            .log-time {
+              color: #909399;
+              margin-right: 8px;
+            }
+
+            .log-content {
+              font-family: 'Courier New', monospace;
+
+              &.INFO {
+                color: #409eff;
+              }
+
+              &.ERROR {
+                color: #f56c6c;
+              }
+
+              &.SUCCESS {
+                color: #67c23a;
+              }
+
+              &.WARNING {
+                color: #e6a23c;
+              }
+            }
+          }
+
+          .empty-logs {
+            text-align: center;
+            color: #909399;
+            padding: 60px 0;
           }
         }
+      }
+    }
+
+    // 右栏：视频预览
+    .right-panel {
+      flex: 1;
+      min-width: 0;
+
+      .video-preview {
+        h3 {
+          font-size: 16px;
+          font-weight: bold;
+          margin-bottom: 16px;
+          color: #303133;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+
+          &:before {
+            content: '';
+            width: 4px;
+            height: 16px;
+            background: #e6a23c;
+            border-radius: 2px;
+          }
+        }
+
+        .video-card {
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          background: white;
+          border-radius: 8px;
+          overflow: hidden;
+          box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+
+          .video-player {
+            flex: 0 0 340px;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+
+            video {
+              width: 100%;
+              height: 100%;
+              object-fit: contain;
+            }
+          }
+
+          .video-details {
+            flex: 1;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            overflow-y: auto;
+            max-height: 260px;
+
+            .video-title {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              font-size: 16px;
+              color: #303133;
+              padding-bottom: 10px;
+              border-bottom: 2px solid #ebeef5;
+              flex-shrink: 0;
+
+              .el-icon {
+                color: #409eff;
+                font-size: 18px;
+              }
+
+              strong {
+                flex: 1;
+                line-height: 1.4;
+                word-break: break-word;
+              }
+            }
+
+            .video-prompt,
+            .video-description {
+              flex-shrink: 0;
+
+              .field-header {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                margin-bottom: 6px;
+                font-weight: bold;
+                color: #606266;
+
+                .el-icon {
+                  font-size: 15px;
+                }
+
+                .label {
+                  font-size: 13px;
+                }
+              }
+
+              .content {
+                margin: 0;
+                padding: 10px;
+                background: #f5f7fa;
+                border-radius: 4px;
+                font-size: 12px;
+                line-height: 1.6;
+                color: #606266;
+                word-break: break-word;
+              }
+            }
+
+            .video-prompt {
+              .field-header {
+                .el-icon {
+                  color: #409eff;
+                }
+              }
+            }
+
+            .video-description {
+              .field-header {
+                .el-icon {
+                  color: #f56c6c;
+                }
+              }
+
+              .content {
+                background: #fef0f0;
+              }
+            }
+
+            .download-btn {
+              margin-top: auto;
+              width: 100%;
+              font-size: 14px;
+              padding: 10px;
+              flex-shrink: 0;
+            }
+          }
+        }
+      }
+
+      .no-videos {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        min-height: 400px;
+        background: #fafafa;
+        border-radius: 8px;
+        border: 1px dashed #dcdfe6;
       }
     }
   }

@@ -409,6 +409,7 @@ class VideoGenerationWorker:
 
                                     generated_videos.append({
                                         'title': script.get('title', f'视频{i+1}'),
+                                        'prompt': script.get('prompt', ''),
                                         'description': script.get('description', ''),
                                         'url': video_url,
                                         'thumbnail': videos[0].get('thumbnail', ''),
