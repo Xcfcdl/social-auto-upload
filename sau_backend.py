@@ -357,6 +357,17 @@ def postVideo():
 
     videos_per_day = data.get('videosPerDay')
     daily_times = data.get('dailyTimes')
+    # Convert daily_times to list of integers (handle both "10:00" and "10" formats)
+    if daily_times is not None:
+        converted_times = []
+        for time in daily_times:
+            if isinstance(time, str):
+                # Handle "HH:MM" format or plain number string
+                hour_str = time.split(':')[0] if ':' in time else time
+                converted_times.append(int(hour_str))
+            else:
+                converted_times.append(time)
+        daily_times = converted_times
     start_days = data.get('startDays')
     # 打印获取到的数据（仅作为示例）
     print("File List:", file_list)
@@ -569,6 +580,17 @@ def postVideoBatch():
 
         videos_per_day = data.get('videosPerDay')
         daily_times = data.get('dailyTimes')
+        # Convert daily_times to list of integers (handle both "10:00" and "10" formats)
+        if daily_times is not None:
+            converted_times = []
+            for time in daily_times:
+                if isinstance(time, str):
+                    # Handle "HH:MM" format or plain number string
+                    hour_str = time.split(':')[0] if ':' in time else time
+                    converted_times.append(int(hour_str))
+                else:
+                    converted_times.append(time)
+            daily_times = converted_times
         start_days = data.get('startDays')
         # 打印获取到的数据（仅作为示例）
         print("File List:", file_list)

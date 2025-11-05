@@ -65,7 +65,12 @@ async def xiaohongshu_cookie_gen(account_file):
 
 class XiaoHongShuVideo(object):
     def __init__(self, title, file_path, tags, publish_date: datetime, account_file, thumbnail_path=None):
-        self.title = title  # 视频标题
+        # 小红书标题限制为20个字符，自动截取
+        if len(title) > 20:
+            self.title = title[:20]
+            print(f"[WARNING] 标题过长已截取：'{title}' -> '{self.title}'")
+        else:
+            self.title = title  # 视频标题
         self.file_path = file_path
         self.tags = tags
         self.publish_date = publish_date
@@ -174,7 +179,12 @@ class XiaoHongShuVideo(object):
             await page.keyboard.press("Delete")
             await page.keyboard.type(self.title)
             await page.keyboard.press("Enter")
-        css_selector = ".ql-editor" # 不能加上 .ql-blank 属性，这样只能获取第一次非空状态
+        css_selector = ".tiptap.ProseMirror"  # 小红书新版编辑器使用 tiptap，旧版使用 ql-editor
+        # 尝试新版选择器
+        if await page.locator(css_selector).count() == 0:
+            # 回退到旧版选择器
+            css_selector = ".ql-editor"
+
         for index, tag in enumerate(self.tags, start=1):
             await page.type(css_selector, "#" + tag)
             await page.press(css_selector, "Space")
@@ -239,8 +249,10 @@ class XiaoHongShuVideo(object):
         xiaohongshu_logger.success('  [-]cookie更新完毕！')
         await asyncio.sleep(2)  # 这里延迟是为了方便眼睛直观的观看
         # 关闭浏览器上下文和浏览器实例
-        await context.close()
-        await browser.close()
+        if context:
+            await context.close()
+        if browser:
+            await browser.close()
     
     async def set_thumbnail(self, page: Page, thumbnail_path: str):
         if thumbnail_path:

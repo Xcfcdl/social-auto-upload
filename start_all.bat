@@ -1,53 +1,53 @@
 @echo off
 
 echo ====================================
-echo 正在启动 Social Auto Upload 系统
+echo Starting Social Auto Upload System
 echo ====================================
 
-:: 定义端口号
+:: Define port numbers
 set "BACKEND_PORT=5409"
 set "FRONTEND_PORT=5173"
 
-:: 检查并关闭占用后端端口的进程
-echo 检查端口 %BACKEND_PORT% 是否被占用...
+:: Check and close processes occupying backend port
+echo Checking if port %BACKEND_PORT% is in use...
 for /f "tokens=5" %%a in ('netstat -ano ^| findstr :%BACKEND_PORT%') do (
-    echo 发现端口 %BACKEND_PORT% 被进程 %%a 占用，正在关闭...
+    echo Found port %BACKEND_PORT% occupied by process %%a, closing...
     taskkill /PID %%a /F >nul 2>&1
     if %errorlevel% equ 0 (
-        echo 成功关闭进程 %%a
+        echo Successfully closed process %%a
     ) else (
-        echo 关闭进程 %%a 失败，请手动关闭
+        echo Failed to close process %%a, please close manually
     )
 )
 
-:: 检查并关闭占用前端端口的进程
-echo 检查端口 %FRONTEND_PORT% 是否被占用...
+:: Check and close processes occupying frontend port
+echo Checking if port %FRONTEND_PORT% is in use...
 for /f "tokens=5" %%a in ('netstat -ano ^| findstr :%FRONTEND_PORT%') do (
-    echo 发现端口 %FRONTEND_PORT% 被进程 %%a 占用，正在关闭...
+    echo Found port %FRONTEND_PORT% occupied by process %%a, closing...
     taskkill /PID %%a /F >nul 2>&1
     if %errorlevel% equ 0 (
-        echo 成功关闭进程 %%a
+        echo Successfully closed process %%a
     ) else (
-        echo 关闭进程 %%a 失败，请手动关闭
+        echo Failed to close process %%a, please close manually
     )
 )
 
-:: 等待1秒，确保进程已完全关闭
+:: Wait 1 second to ensure processes are fully closed
 timeout /t 1 /nobreak >nul
 
-:: 创建新窗口并启动后端服务
-echo 启动后端服务...
-start "后端服务" cmd /k "cd /d d:\Projects\social-auto-upload && python sau_backend.py"
+:: Create new window and start backend service
+echo Starting backend service...
+start "Backend Service" cmd /k "cd /d d:\Projects\social-auto-upload && python sau_backend.py"
 
-:: 等待2秒，确保后端开始启动
+:: Wait 2 seconds to ensure backend starts
 timeout /t 2 /nobreak >nul
 
-:: 创建新窗口并启动前端服务
-echo 启动前端服务...
-start "前端服务" cmd /k "cd /d d:\Projects\social-auto-upload\sau_frontend && npm run dev"
+:: Create new window and start frontend service
+echo Starting frontend service...
+start "Frontend Service" cmd /k "cd /d d:\Projects\social-auto-upload\sau_frontend && npm run dev"
 
-echo 启动完成！
-echo 请等待服务完全启动...
-echo 后端服务将在 http://localhost:%BACKEND_PORT% 运行
-echo 前端服务将在 http://localhost:%FRONTEND_PORT% 或其他提示端口运行
+echo Startup complete!
+echo Please wait for services to fully start...
+echo Backend service will run at http://localhost:%BACKEND_PORT%
+echo Frontend service will run at http://localhost:%FRONTEND_PORT% or other prompted port
 echo ====================================
