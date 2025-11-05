@@ -66,6 +66,20 @@ def extract_tags_from_description(description, max_tags=5):
     return tags[:max_tags]
 
 # 自动保存视频到素材库
+def sanitize_filename(filename):
+    """
+    清理文件名中的非法字符，确保在Windows系统中有效
+    :param filename: 原始文件名
+    :return: 清理后的文件名
+    """
+    # Windows不允许的字符列表
+    illegal_chars = '<>:"/\\|?*'
+    # 替换非法字符为下划线
+    for char in illegal_chars:
+        filename = filename.replace(char, '_')
+    # 移除首尾空白字符
+    return filename.strip()
+
 def save_video_to_material(video_url, title, description):
     """
     下载Sora2生成的视频并保存到素材库
@@ -87,9 +101,10 @@ def save_video_to_material(video_url, title, description):
         response = requests.get(video_url, timeout=60, stream=True)
         response.raise_for_status()
 
-        # 生成文件名
+        # 生成文件名 - 清理标题中的非法字符
         uuid_v1 = uuid.uuid1()
-        filename = f"{title}.mp4"
+        sanitized_title = sanitize_filename(title)
+        filename = f"{sanitized_title}.mp4"
         final_filename = f"{uuid_v1}_{filename}"
         filepath = Path(BASE_DIR / "videoFile" / final_filename)
 
